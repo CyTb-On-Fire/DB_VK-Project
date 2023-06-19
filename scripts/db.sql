@@ -10,6 +10,7 @@ create table if not exists Forum(
     id serial primary key,
     author_id int references Users,
     slug text unique not null,
+    title text not null,
     post_count int not null default 0,
     thread_count int not null default 0
 );

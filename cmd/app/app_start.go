@@ -1,12 +1,17 @@
-package app
+package main
 
 import (
+	"DBProject/internal/app"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx"
 )
 
 func start() {
-	db, err := pgx.Connect()
+	//db, err := pgx.Connect()
 	r := gin.Default()
 	_ = r
+}
+
+func main() {
+	mainApp := app.New()
+	mainApp.Run()
 }
