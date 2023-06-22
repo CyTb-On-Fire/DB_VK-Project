@@ -8,7 +8,7 @@ create table if not exists Users(
 
 create table if not exists Forum(
     id serial primary key,
-    author_id int references Users,
+    author_id int not null references Users,
     slug text unique not null,
     title text not null,
     post_count int not null default 0,
@@ -17,11 +17,11 @@ create table if not exists Forum(
 
 create table if not exists Thread(
     id serial primary key,
-    author_id int references Users,
-    desription text not null,
-    name text not null,
-    forum_id int references Forum,
-    slug varchar(40),
+    author_id int not null references Users,
+    message text not null,
+    title text not null,
+    forum_id int not null references Forum,
+    slug varchar(40) unique,
     created date not null default now(),
     vote_count int not null default 0,
     constraint valid_thread_slug check ( slug !~* '^[0-9]+$')
@@ -33,8 +33,9 @@ create table if not exists Post(
     author_id int not null references Users,
     message text not null,
     edited bool not null default false,
-    thread_id int references Thread,
-    created date not null default now()
+    thread_id int not null references Thread,
+    created date not null default now(),
+    forum_id int not null references Forum
 );
 
 create table if not exists Vote(
@@ -44,6 +45,13 @@ create table if not exists Vote(
     positive_voice bool not null
 );
 
+
+-- Collations:
+CREATE COLLATION nickname_case_insensitive(
+    provider = icu,
+    locale = 'und-u-ks-level2',
+    deterministic = false
+    );
 
 -- Triggers:
 
@@ -82,3 +90,4 @@ create or replace trigger trigger_thread_unvote
 
 -- Indexes
 
+create index on forum(slug) include(id);

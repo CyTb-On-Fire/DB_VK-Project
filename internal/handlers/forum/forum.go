@@ -1,7 +1,8 @@
-package handlers
+package forum
 
 import (
-	"DBProject/internal/db"
+	"DBProject/internal/common"
+	"DBProject/internal/db/forum"
 	"DBProject/internal/models"
 	"DBProject/internal/utils"
 	"fmt"
@@ -18,12 +19,12 @@ type CreateRequest struct {
 }
 
 type ForumHandler struct {
-	Forums *db.ForumStorage
+	Forums *forum.ForumStorage
 }
 
 func NewForumHandler(pool *pgx.ConnPool) *ForumHandler {
 	return &ForumHandler{
-		Forums: db.NewForumStorage(pool),
+		Forums: forum.NewForumStorage(pool),
 	}
 }
 
@@ -80,4 +81,54 @@ func (handler *ForumHandler) Details(c *gin.Context) {
 	c.JSON(http.StatusOK, forum)
 }
 
-func (handler *ForumHandler) CreateThread()
+func (handler *ForumHandler) GetUsers(c *gin.Context) {
+	forumSlug := c.Param("slug")
+
+	params := &common.ListParams{
+		Slug: forumSlug,
+	}
+
+	err := c.Bind(params)
+	if err != nil {
+		utils.WriteError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	log.Println(params)
+
+	users, err := handler.Forums.GetUsers(params)
+
+	switch err {
+	case nil:
+		c.JSON(http.StatusOK, users)
+	case utils.ErrNonExist:
+		c.JSON(http.StatusNotFound, gin.H{"message": "Can`t find forum with id: " + forumSlug})
+	default:
+		c.JSON(http.StatusInternalServerError, err)
+	}
+
+}
+
+func (handler *ForumHandler) GetThreads(c *gin.Context) {
+	forumSlug := c.Param("slug")
+
+	params := &common.ThreadListParams{Slug: forumSlug}
+
+	err := c.BindQuery(params)
+
+	if err != nil {
+		utils.WriteError(c, http.StatusBadRequest, err)
+		return
+	}
+
+	threads, err := handler.Forums.GetThreads(params)
+
+	switch err {
+	case nil:
+		c.JSON(http.StatusOK, threads)
+	case utils.ErrNonExist:
+		c.JSON(http.StatusNotFound, gin.H{"message": "Can`t find forum with id: " + forumSlug})
+	default:
+		c.JSON(http.StatusInternalServerError, err)
+	}
+}
