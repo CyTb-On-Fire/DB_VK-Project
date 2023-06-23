@@ -189,30 +189,59 @@ func (handler *PostHandler) Details(c *gin.Context) {
 		utils.WriteError(c, http.StatusInternalServerError, err)
 		return
 	}
+	log.Println(params.Params)
 
-	for _, opt := range params.Params {
-		switch opt {
-		case "user":
+	for i := range params.Params {
+		if params.Params[i] == "user" {
+			log.Println("entered user")
 			response.Author, err = handler.Users.GetByNickname(post.Author)
 			if err != nil {
 				log.Println(err)
 			}
-		case "forum":
-			response.Forum, err = handler.Forums.GetBySlug(post.ForumSlug)
-			if err != nil {
-				log.Println(err)
-			}
-		case "thread":
+		}
+
+		if params.Params[i] == "thread" {
+			log.Println("entered user")
 			response.Thread, err = handler.Threads.GetById(tId)
 			if err != nil {
 				log.Println(err)
 			}
 		}
 
-		if err != nil {
-			utils.WriteError(c, http.StatusInternalServerError, err)
-			return
+		if params.Params[i] == "forum" {
+			log.Println("entered user")
+			response.Forum, err = handler.Forums.GetBySlug(post.ForumSlug)
+			if err != nil {
+				log.Println(err)
+			}
 		}
+
+	}
+	//for _, opt := range params.Params {
+	//	switch opt {
+	//	case "user":
+	//		log.Println("entered user")
+	//		response.Author, err = handler.Users.GetByNickname(post.Author)
+	//		if err != nil {
+	//			log.Println(err)
+	//		}
+	//	case "forum":
+	//		log.Println("entered forum")
+	//		response.Forum, err = handler.Forums.GetBySlug(post.ForumSlug)
+	//		if err != nil {
+	//			log.Println(err)
+	//		}
+	//	case "thread":
+	//		log.Println("entered thread")
+	//		response.Thread, err =
+	//		if err != nil {
+	//			log.Println(err)
+	//		}
+	//	}
+
+	if err != nil {
+		utils.WriteError(c, http.StatusInternalServerError, err)
+		return
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -230,7 +259,7 @@ func (handler *PostHandler) Update(c *gin.Context) {
 
 	request := new(UpdateRequest)
 
-	err = c.Bind(request)
+	err = c.BindQuery(request)
 
 	if err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
