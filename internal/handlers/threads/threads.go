@@ -78,7 +78,7 @@ func (handler *ThreadsHandler) Create(c *gin.Context) {
 	c.JSON(code, thread)
 }
 
-func (handler *ThreadsHandler) Details(c *gin.Context) {
+func (handler *ThreadsHandler) Detailss(c *gin.Context) {
 	threadSlug := c.Param("slug")
 
 	var thread *models.Thread
@@ -97,19 +97,14 @@ func (handler *ThreadsHandler) Details(c *gin.Context) {
 	if err != nil {
 		if err == utils.ErrNonExist {
 			c.JSON(http.StatusNotFound, gin.H{"message": "Can't find user with id #42\n"})
-			return
+
 		}
 		utils.WriteError(c, http.StatusInternalServerError, err)
-		return
+
 	}
 
-	//anotherThread := ThreadProxy{
-	//	*thread,
-	//}
-
-	log.Println(thread.Created)
-
-	c.JSON(http.StatusOK, gin.H{"SSSSS": "SSSSS"})
+	log.Println(thread)
+	c.JSON(http.StatusOK, thread)
 }
 
 func (handler *ThreadsHandler) Update(c *gin.Context) {
@@ -125,6 +120,8 @@ func (handler *ThreadsHandler) Update(c *gin.Context) {
 	} else {
 		thread, err = handler.Threads.GetById(threadId)
 	}
+
+	log.Println(thread)
 
 	if err != nil {
 		if err == utils.ErrNonExist {
@@ -142,6 +139,8 @@ func (handler *ThreadsHandler) Update(c *gin.Context) {
 		c.AbortWithError(http.StatusNotFound, err)
 		return
 	}
+
+	log.Println(request)
 
 	if request.Title != "" {
 		thread.Title = request.Title

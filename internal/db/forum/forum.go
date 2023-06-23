@@ -98,11 +98,11 @@ func (f *ForumStorage) GetUsers(params *common.ListParams) ([]*models.User, erro
 		comparsion = ">"
 	}
 
-	log.Println(`SELECT DISTINCT u.id, u.nickname collate nickname_case_insensitive, u.fullname, u.about, u.email FROM users u
+	log.Println(`SELECT DISTINCT u.id, u.nickname collate "C", u.fullname, u.about, u.email FROM users u
 		RIGHT JOIN (SELECT id, author_id FROM thread WHERE (SELECT id from forum f where lower(f.slug)=lower($1)) = forum_id) t on t.author_id = u.id
 		RIGHT JOIN (SELECT id, author_id FROM post WHERE (SELECT id from forum f where lower(f.slug)=lower($1)) = forum_id) p on u.id = p.author_id
-	   WHERE nickname collate nickname_case_insensitive ` + comparsion + ` $3 collate nickname_case_insensitive
-	   ORDER BY nickname collate nickname_case_insensitive
+	   WHERE nickname collate "C" ` + comparsion + ` $3 collate "C"
+	   ORDER BY nickname collate "C"
 	   ` + order +
 		`
 		LIMIT $2`)
@@ -132,12 +132,12 @@ func (f *ForumStorage) GetUsers(params *common.ListParams) ([]*models.User, erro
 	}
 
 	rows, err := f.db.Query(
-		`SELECT DISTINCT u.id, u.nickname collate nickname_case_insensitive, u.fullname, u.about, u.email FROM users u
+		`SELECT u.id, u.nickname, u.fullname, u.about, u.email FROM users u
 		LEFT JOIN (SELECT id, author_id FROM thread WHERE $1 = forum_id) t on t.author_id = u.id
 		LEFT JOIN (SELECT id, author_id FROM post WHERE $1 = forum_id) p on u.id = p.author_id
         WHERE (t.id is not null or p.id is not null)
 		`+sinceFilter+`
-        ORDER BY nickname collate nickname_case_insensitive
+        ORDER BY lower(nickname) 
         `+order+
 			`
 		LIMIT $2`,

@@ -1,6 +1,6 @@
 create table if not exists Users(
     id serial primary key,
-    nickname varchar(50) not null,
+    nickname varchar(50) collate nickname_case_insensitive not null,
     fullname varchar(50) not null,
     about text,
     email varchar(256) not null
@@ -49,11 +49,11 @@ create table if not exists Vote(
 
 
 -- Collations:
-CREATE COLLATION nickname_case_insensitive(
-    provider = icu,
-    locale = 'und-u-ks-level2',
-    deterministic = false
-    );
+-- CREATE COLLATION nickname_case_insensitive(
+--     provider = icu,
+--     locale = 'und-u-ks-level2',
+--     deterministic = false
+--     );
 
 -- Triggers:
 
@@ -121,6 +121,32 @@ create or replace trigger trigger_post_insert
     before insert on Post
     for each row
     execute procedure process_post_insert();
+
+create or replace function process_thread_inc() returns trigger as $thread_inc$
+begin
+    update forum set thread_count = thread_count + 1 where id=new.forum_id;
+    return null;
+end
+$thread_inc$ LANGUAGE plpgsql;
+
+create or replace trigger trigger_thread_inc
+    after insert on thread
+    for each row
+    execute procedure process_thread_inc();
+
+create or replace function process_post_inc() returns trigger as $post_inc$
+begin
+    update forum set post_count = post_count + 1 where id=new.forum_id;
+    return null;
+end
+$post_inc$ LANGUAGE plpgsql;
+
+create or replace trigger trigger_post_inc
+    after insert on post
+    for each row
+execute procedure process_post_inc();
+
+
 
 -- Indexes
 

@@ -48,7 +48,7 @@ func (app *App) Run() {
 	r.GET("/api/user/:nickname/profile", userHandler.Profile)
 
 	r.POST("/api/forum/:slug/create", threadHandler.Create)
-	r.GET("/api/thread/:slug/details", threadHandler.Details)
+	r.GET("/api/thread/:slug/details", threadHandler.Detailss)
 	r.POST("/api/thread/:slug/vote", threadHandler.Vote)
 	r.POST("/api/thread/:slug/details", threadHandler.Update)
 

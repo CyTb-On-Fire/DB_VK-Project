@@ -161,13 +161,13 @@ func (s *ThreadStorage) GetBySlug(slug string) (*models.Thread, error) {
 }
 
 func (s *ThreadStorage) Update(thread *models.Thread) (*models.Thread, error) {
-	err := s.db.QueryRow(
+	_, err := s.db.Exec(
 		`UPDATE thread SET title=$1, message=$2
 		WHERE id=$3`,
 		thread.Title,
 		thread.Message,
 		thread.Id,
-	).Scan()
+	)
 
 	if err != nil {
 		if err == pgx.ErrNoRows {
