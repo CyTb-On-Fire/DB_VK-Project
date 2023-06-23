@@ -3,6 +3,7 @@ package app
 import (
 	"DBProject/internal/config"
 	"DBProject/internal/handlers/forum"
+	"DBProject/internal/handlers/posts"
 	threads2 "DBProject/internal/handlers/threads"
 	"DBProject/internal/handlers/user"
 	"github.com/gin-gonic/gin"
@@ -33,6 +34,7 @@ func (app *App) Run() {
 	forumHandler := forum.NewForumHandler(db)
 	userHandler := user.New(db)
 	threadHandler := threads2.New(db)
+	postHandler := posts.New(db)
 
 	r.POST("/api/forum/create", forumHandler.Create)
 	r.GET("/api/forum/:slug/details", forumHandler.Details)
@@ -44,6 +46,11 @@ func (app *App) Run() {
 	r.GET("/api/user/:nickname/profile", userHandler.Profile)
 
 	r.POST("/api/forum/:slug/create", threadHandler.Create)
+	r.GET("/api/thread/:slug/details", threadHandler.Details)
+	r.POST("/api/thread/:slug/vote", threadHandler.Vote)
+
+	r.POST("/api/thread/:slug/create", postHandler.Create)
+	r.GET("/api/thread/:slug/posts", threadHandler.GetPosts)
 
 	err = r.Run("0.0.0.0:5000")
 	if err != nil {

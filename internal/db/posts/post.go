@@ -2,9 +2,12 @@ package posts
 
 import (
 	"DBProject/internal/models"
+	"DBProject/internal/utils"
 	"fmt"
 	"github.com/asaskevich/govalidator"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx"
+	"log"
 	"time"
 )
 
@@ -16,7 +19,7 @@ func NewStorage(pool *pgx.ConnPool) *PostStorage {
 	return &PostStorage{db: pool}
 }
 
-func (s *PostStorage) Insert(batch []*models.Post) (*models.Post, error) {
+func (s *PostStorage) Insert(batch []*models.Post) ([]*models.Post, error) {
 	tx, err := s.db.Begin()
 
 	if err != nil {
@@ -69,6 +72,37 @@ func (s *PostStorage) Insert(batch []*models.Post) (*models.Post, error) {
 
 		var forumId int
 
-		err := tx.QueryRow(query, args...).Scan(&post.Id, &forumId)
+		err = tx.QueryRow(query, args...).Scan(&post.Id, &forumId)
+
+		if err != nil {
+			errCode, ok := err.(pgx.PgError)
+			if ok {
+				switch errCode.Code {
+				case pgerrcode.ForeignKeyViolation:
+					return nil, utils.ErrConflict
+				case pgerrcode.InvalidColumnReference:
+					return nil, utils.ErrConflict
+				case pgerrcode.NotNullViolation:
+					return nil, utils.ErrNonExist
+				}
+			}
+			log.Println("In tx: ", err)
+			return nil, err
+		}
+
+		var forumSlug string
+
+		err = tx.QueryRow(`SELECT slug FROM forum where id=$1`,
+			forumId,
+		).Scan(&forumSlug)
+
+		post.ForumSlug = forumSlug
+
+		if err != nil {
+			log.Println("error scanning forumslug: ", err)
+		}
+
 	}
+	log.Println("Exited without error")
+	return batch, nil
 }

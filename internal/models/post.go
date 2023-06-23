@@ -4,9 +4,9 @@ import "time"
 
 type Post struct {
 	Id        int       `json:"id"`
-	ParentId  int       `json:"parent"`
-	Author    string    `json:"author"`
-	Message   string    `json:"message"`
+	ParentId  int       `json:"parent" binding:"required"`
+	Author    string    `json:"author" binding:"required"`
+	Message   string    `json:"message" binding:"required"`
 	Edited    bool      `json:"isEdited"`
 	ForumSlug string    `json:"forum"`
 	Created   time.Time `json:"created"`

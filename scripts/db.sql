@@ -35,7 +35,9 @@ create table if not exists Post(
     edited bool not null default false,
     thread_id int not null references Thread,
     created date not null default now(),
-    forum_id int not null references Forum
+    forum_id int not null references Forum,
+    path int[] not null default array[]::int[],
+    childs int[]
 );
 
 create table if not exists Vote(
@@ -87,6 +89,33 @@ create or replace trigger trigger_thread_unvote
     on Vote
     for each row
     execute procedure process_thread_unvote();
+
+-- triggers for path processing:
+
+create or replace function process_post_insert() returns trigger as $post_insert$
+    declare
+        current_node int;
+        parent_node record;
+        new_path_array int[];
+        test bool;
+    begin
+        if new.parent_id != 0 then
+            current_node = new.parent_id;
+
+            new_path_array = (select path from post where id=current_node);
+
+            new_path_array = array_append(new_path_array, current_node);
+
+            new.path = new_path_array;
+        end if;
+        return new;
+    end
+$post_insert$ LANGUAGE plpgsql;
+
+create or replace trigger trigger_post_insert
+    before insert on Post
+    for each row
+    execute procedure process_post_insert();
 
 -- Indexes
 
