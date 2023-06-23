@@ -4,6 +4,7 @@ import (
 	"DBProject/internal/config"
 	"DBProject/internal/handlers/forum"
 	"DBProject/internal/handlers/posts"
+	"DBProject/internal/handlers/service"
 	threads2 "DBProject/internal/handlers/threads"
 	"DBProject/internal/handlers/user"
 	"github.com/gin-gonic/gin"
@@ -35,6 +36,7 @@ func (app *App) Run() {
 	userHandler := user.New(db)
 	threadHandler := threads2.New(db)
 	postHandler := posts.New(db)
+	serviceHandler := service.New(db)
 
 	r.POST("/api/forum/create", forumHandler.Create)
 	r.GET("/api/forum/:slug/details", forumHandler.Details)
@@ -48,9 +50,15 @@ func (app *App) Run() {
 	r.POST("/api/forum/:slug/create", threadHandler.Create)
 	r.GET("/api/thread/:slug/details", threadHandler.Details)
 	r.POST("/api/thread/:slug/vote", threadHandler.Vote)
+	r.POST("/api/thread/:slug/details", threadHandler.Update)
 
 	r.POST("/api/thread/:slug/create", postHandler.Create)
 	r.GET("/api/thread/:slug/posts", threadHandler.GetPosts)
+	r.GET("/api/post/:id/details", postHandler.Details)
+	r.POST("/api/post/:id/details", postHandler.Update)
+
+	r.GET("/api/service/status", serviceHandler.Status)
+	r.POST("/api/service/clear", serviceHandler.Clear)
 
 	err = r.Run("0.0.0.0:5000")
 	if err != nil {

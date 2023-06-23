@@ -29,3 +29,15 @@ type Vote struct {
 	Voice      int    `json:"voice" binding:"required"`
 	ThreadSlug string `json:"-"`
 }
+
+type DbStatus struct {
+	User   int `json:"user"`
+	Forum  int `json:"forum"`
+	Thread int `json:"thread"`
+	Post   int `json:"post"`
+}
+
+type PostViewParams struct {
+	Id     int      `form:"-"`
+	Params []string `form:"params"`
+}

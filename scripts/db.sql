@@ -34,10 +34,9 @@ create table if not exists Post(
     message text not null,
     edited bool not null default false,
     thread_id int not null references Thread,
-    created date not null default now(),
+    created timestamptz not null default now(),
     forum_id int not null references Forum,
-    path int[] not null default array[]::int[],
-    childs int[]
+    path int[] not null default array[]::int[]
 );
 
 create table if not exists Vote(

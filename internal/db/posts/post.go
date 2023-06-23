@@ -106,3 +106,66 @@ func (s *PostStorage) Insert(batch []*models.Post) ([]*models.Post, error) {
 	log.Println("Exited without error")
 	return batch, nil
 }
+
+func (s *PostStorage) Details(id int) (*models.Post, error) {
+	post := &models.Post{Id: id}
+
+	err := s.db.QueryRow(
+		`SELECT p.parent_id, u.nickname, p.message, p.edited, p.thread_id, p.created, f.slug 
+		FROM post p
+		JOIN forum f on f.id = p.forum_id
+		JOIN users u on u.id = f.author_id
+		WHERE id=$1`,
+		id,
+	).Scan(
+		&post.ParentId,
+		&post.Author,
+		&post.Message,
+		&post.Edited,
+		&post.ThreadId,
+		&post.Created,
+		&post.ForumSlug,
+	)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, utils.ErrNonExist
+		}
+		return nil, err
+	}
+
+	return post, nil
+}
+
+func (s *PostStorage) Update(id int, message string) (*models.Post, error) {
+	post := &models.Post{Id: id, Message: message}
+
+	err := s.db.QueryRow(`SELECT p.parent_id, u.nickname, p.thread_id, p.created, f.slug FROM post p
+                                                                               JOIN forum f on f.id = p.forum_id
+                                                                               JOIN users u on u.id = p.author_id
+                                                                               WHERE id=$1`).Scan(
+		&post.ParentId,
+		&post.Author,
+		&post.ThreadId,
+		&post.Created,
+		&post.ForumSlug,
+	)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, utils.ErrNonExist
+		}
+		return nil, err
+	}
+
+	err = s.db.QueryRow(`UPDATE post SET message=$1, edited=true 
+            WHERE id=$2`,
+		message,
+		id,
+	).Scan()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return post, nil
+}
