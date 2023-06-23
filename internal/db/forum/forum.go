@@ -98,11 +98,11 @@ func (f *ForumStorage) GetUsers(params *common.ListParams) ([]*models.User, erro
 		comparsion = ">"
 	}
 
-	log.Println(`SELECT DISTINCT u.id, u.nickname collate "C", u.fullname, u.about, u.email FROM users u
+	log.Println(`SELECT DISTINCT u.id, u.nickname collate nickname_case_insensitive, u.fullname, u.about, u.email FROM users u
 		RIGHT JOIN (SELECT id, author_id FROM thread WHERE (SELECT id from forum f where lower(f.slug)=lower($1)) = forum_id) t on t.author_id = u.id
 		RIGHT JOIN (SELECT id, author_id FROM post WHERE (SELECT id from forum f where lower(f.slug)=lower($1)) = forum_id) p on u.id = p.author_id
-	   WHERE nickname collate "C" ` + comparsion + ` $3 collate "C"
-	   ORDER BY nickname collate "C"
+	   WHERE nickname collate nickname_case_insensitive ` + comparsion + ` $3 collate nickname_case_insensitive
+	   ORDER BY nickname collate nickname_case_insensitive
 	   ` + order +
 		`
 		LIMIT $2`)
@@ -126,18 +126,18 @@ func (f *ForumStorage) GetUsers(params *common.ListParams) ([]*models.User, erro
 	sinceFilter := ""
 
 	if params.Since != "" {
-		sinceFilter = ` AND nickname collate nickname_case_insensitive ` + comparsion + ` $3 collate nickname_case_insensitive
+		sinceFilter = ` AND lower(nickname) ` + comparsion + ` lower($3 collate "C")
 `
 		args = append(args, params.Since)
 	}
 
 	rows, err := f.db.Query(
-		`SELECT u.id, u.nickname, u.fullname, u.about, u.email FROM users u
+		`SELECT DISTINCT u.id, u.nickname, u.fullname, u.about, u.email, lower(u.nickname) FROM users u
 		LEFT JOIN (SELECT id, author_id FROM thread WHERE $1 = forum_id) t on t.author_id = u.id
 		LEFT JOIN (SELECT id, author_id FROM post WHERE $1 = forum_id) p on u.id = p.author_id
         WHERE (t.id is not null or p.id is not null)
 		`+sinceFilter+`
-        ORDER BY lower(nickname) 
+        ORDER BY lower(nickname)
         `+order+
 			`
 		LIMIT $2`,
@@ -150,6 +150,8 @@ func (f *ForumStorage) GetUsers(params *common.ListParams) ([]*models.User, erro
 
 	defer rows.Close()
 
+	var loweredNick string
+
 	for rows.Next() {
 		user := &models.User{}
 		err = rows.Scan(
@@ -158,6 +160,7 @@ func (f *ForumStorage) GetUsers(params *common.ListParams) ([]*models.User, erro
 			&user.Fullname,
 			&user.About,
 			&user.Email,
+			&loweredNick,
 		)
 		if err != nil {
 			return nil, err

@@ -97,10 +97,10 @@ func (handler *ThreadsHandler) Detailss(c *gin.Context) {
 	if err != nil {
 		if err == utils.ErrNonExist {
 			c.JSON(http.StatusNotFound, gin.H{"message": "Can't find user with id #42\n"})
-
+			return
 		}
 		utils.WriteError(c, http.StatusInternalServerError, err)
-
+		return
 	}
 
 	log.Println(thread)

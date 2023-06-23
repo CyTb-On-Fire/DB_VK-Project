@@ -42,7 +42,7 @@ type DbStatus struct {
 
 type PostViewParams struct {
 	Id     int      `form:"-"`
-	Params []string `form:"params"`
+	Params []string `form:"related"`
 }
 
 type NullableInt sql.NullInt64

@@ -62,6 +62,8 @@ func (u *UserStorage) GetByNickname(nickname string) (*models.User, error) {
 		return nil, err
 	}
 
+	log.Println(user)
+
 	return user, nil
 }
 

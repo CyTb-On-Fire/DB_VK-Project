@@ -1,6 +1,12 @@
+CREATE COLLATION nickname_case_insensitive(
+    provider = icu,
+    locale = 'und-u-ks-level2',
+    deterministic = false
+    );
+
 create table if not exists Users(
     id serial primary key,
-    nickname varchar(50) collate nickname_case_insensitive not null,
+    nickname text collate "C" not null,
     fullname varchar(50) not null,
     about text,
     email varchar(256) not null
@@ -48,12 +54,14 @@ create table if not exists Vote(
 );
 
 
+create table if not exists ForumUsers(
+    id serial primary key,
+    user_id int not null references users,
+    forum_id int not null references forum
+);
+
 -- Collations:
--- CREATE COLLATION nickname_case_insensitive(
---     provider = icu,
---     locale = 'und-u-ks-level2',
---     deterministic = false
---     );
+
 
 -- Triggers:
 

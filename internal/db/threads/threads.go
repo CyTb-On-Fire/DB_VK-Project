@@ -518,12 +518,12 @@ func (s *ThreadStorage) NewVote(vote *common.Vote) (*models.Thread, error) {
 		threadId, _ = strconv.Atoi(vote.ThreadSlug)
 		err = s.db.QueryRow(`SELECT EXISTS(SELECT from thread WHERE id=$1)`, vote.ThreadSlug).Scan(&exists)
 	} else {
-		err = s.db.QueryRow(`SELECT id FROM thread where slug=$1`, thread.Slug).Scan(&threadId)
+		err = s.db.QueryRow(`SELECT id FROM thread where lower(slug)=lower($1)`, thread.Slug).Scan(&threadId)
 		log.Println(threadId)
 		if err != nil {
 			log.Println("err trying get threadId: ", err)
 		}
-		err = s.db.QueryRow(`SELECT EXISTS(SELECT from thread where slug=$1)`, vote.ThreadSlug).Scan(&exists)
+		err = s.db.QueryRow(`SELECT EXISTS(SELECT from thread where lower(slug)=lower($1))`, vote.ThreadSlug).Scan(&exists)
 	}
 
 	var value bool
@@ -535,7 +535,7 @@ func (s *ThreadStorage) NewVote(vote *common.Vote) (*models.Thread, error) {
 	}
 
 	err = s.db.QueryRow(`INSERT INTO vote(user_id, thread_id, positive_voice)
-values ((SELECT id from users where nickname=$1), $2, $3) RETURNING thread_id`,
+values ((SELECT id from users where lower(nickname)=lower($1)), $2, $3) RETURNING thread_id`,
 		vote.Nickname,
 		threadId,
 		value,
@@ -555,14 +555,14 @@ values ((SELECT id from users where nickname=$1), $2, $3) RETURNING thread_id`,
 
 				var positive bool
 
-				err = s.db.QueryRow(`SELECT positive_voice from vote WHERE user_id=(SELECT id from users where nickname=$1) and thread_id=$2`, vote.Nickname, threadId).Scan(&positive)
+				err = s.db.QueryRow(`SELECT positive_voice from vote WHERE user_id=(SELECT id from users where lower(nickname)=lower($1)) and thread_id=$2`, vote.Nickname, threadId).Scan(&positive)
 
 				log.Println("err before old voice is: ", err)
 
 				log.Println("old voice is:", positive)
 
 				if value != positive {
-					_, err = s.db.Exec(`UPDATE vote set positive_voice=$1 where user_id=(SELECT id from users where nickname=$2) and thread_id=$3`, value, vote.Nickname, threadId)
+					_, err = s.db.Exec(`UPDATE vote set positive_voice=$1 where user_id=(SELECT id from users where lower(nickname)=lower($2)) and thread_id=$3`, value, vote.Nickname, threadId)
 
 					if err != nil {
 						log.Println(err)
@@ -583,7 +583,7 @@ values ((SELECT id from users where nickname=$1), $2, $3) RETURNING thread_id`,
 			`SELECT t.id, u.nickname, t.message, t.title, f.slug, t.created, t.vote_count, t.slug FROM thread t
 			JOIN users u on t.author_id = u.id
 			JOIN forum f on f.id = t.forum_id
-			WHERE t.slug=$1`, thread.Slug).
+			WHERE lower(t.slug)=lower($1)`, thread.Slug).
 			Scan(
 				&thread.Id,
 				&thread.Author,

@@ -28,6 +28,13 @@ type PostExtended struct {
 	Forum  *models.Forum  `json:"forum,omitempty"`
 }
 
+type ProxyPostExtended struct {
+	Post   *models.ProxyPost `json:"post"`
+	Author *models.User      `json:"author,omitempty"`
+	Thread *models.Thread    `json:"thread,omitempty"`
+	Forum  *models.Forum     `json:"forum,omitempty"`
+}
+
 type CreatePostRequest struct {
 	Posts []*models.Post `json:"posts" binding:"required"`
 }
@@ -51,6 +58,21 @@ func New(pool *pgx.ConnPool) *PostHandler {
 func (handler *PostHandler) Create(c *gin.Context) {
 	threadId := c.Param("slug")
 
+	id, err := strconv.Atoi(threadId)
+
+	if err != nil {
+		_, err = handler.Threads.GetBySlug(threadId)
+	} else {
+		_, err = handler.Threads.GetById(id)
+	}
+
+	if err != nil {
+		c.JSON(http.StatusNotFound,
+			gin.H{
+				"message": "Can't find post thread by id"})
+		return
+	}
+
 	var stockPosts []*models.Post
 
 	body, err := ioutil.ReadAll(c.Request.Body)
@@ -69,7 +91,19 @@ func (handler *PostHandler) Create(c *gin.Context) {
 		post.ThreadId = threadId
 	}
 
+	log.Println(stockPosts)
+
 	posts, err := handler.Posts.Insert(stockPosts)
+
+	if err == utils.ErrConflict {
+		c.JSON(http.StatusConflict, gin.H{"message": "Parent post was created in another thread"})
+		return
+	}
+
+	if err == utils.ErrNonExist {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Can't find post thread by id"})
+		return
+	}
 
 	proxyPosts := make([]*models.ProxyPost, 0)
 
@@ -114,19 +148,38 @@ func (handler *PostHandler) Details(c *gin.Context) {
 		return
 	}
 
-	params := common.PostViewParams{}
+	params := &common.PostViewParams{}
 
-	err = c.Bind(params)
+	err = c.BindQuery(params)
 	if err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	log.Println(params)
 
 	params.Id = id
 
-	response := &PostExtended{}
+	response := &ProxyPostExtended{}
 
-	response.Post, err = handler.Posts.Details(id)
+	post, err := handler.Posts.Details(id)
+
+	if err == utils.ErrNonExist {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Can't find post with id"})
+		return
+	}
+	tId, _ := strconv.Atoi(post.ThreadId)
+	response.Post = &models.ProxyPost{
+		Id:        post.Id,
+		ParentId:  post.ParentId,
+		Author:    post.Author,
+		Message:   post.Message,
+		Edited:    post.Edited,
+		ForumSlug: post.ForumSlug,
+		Created:   post.Created,
+		ThreadId:  tId,
+	}
+
+	log.Println(post)
 
 	if err != nil {
 		if err == utils.ErrNonExist {
@@ -140,11 +193,20 @@ func (handler *PostHandler) Details(c *gin.Context) {
 	for _, opt := range params.Params {
 		switch opt {
 		case "user":
-			response.Author, err = handler.Users.GetByNickname(response.Post.Author)
+			response.Author, err = handler.Users.GetByNickname(post.Author)
+			if err != nil {
+				log.Println(err)
+			}
 		case "forum":
-			response.Forum, err = handler.Forums.GetBySlug(response.Post.ForumSlug)
+			response.Forum, err = handler.Forums.GetBySlug(post.ForumSlug)
+			if err != nil {
+				log.Println(err)
+			}
 		case "thread":
-			response.Thread, err = handler.Threads.GetById(response.Post.Id)
+			response.Thread, err = handler.Threads.GetById(tId)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 
 		if err != nil {
@@ -158,7 +220,7 @@ func (handler *PostHandler) Details(c *gin.Context) {
 
 func (handler *PostHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
-
+	log.Println("Started Update handler")
 	id, err := strconv.Atoi(idStr)
 
 	if err != nil {
@@ -176,10 +238,23 @@ func (handler *PostHandler) Update(c *gin.Context) {
 	}
 
 	post, err := handler.Posts.Update(id, request.Message)
+	log.Println(err)
 
+	tId, _ := strconv.Atoi(post.ThreadId)
+
+	proxyPost := &models.ProxyPost{
+		Id:        post.Id,
+		ParentId:  post.ParentId,
+		Author:    post.Author,
+		Message:   post.Message,
+		Edited:    post.Edited,
+		ForumSlug: post.ForumSlug,
+		Created:   post.Created,
+		ThreadId:  tId,
+	}
 	switch err {
 	case nil:
-		c.JSON(http.StatusOK, post)
+		c.JSON(http.StatusOK, proxyPost)
 	case utils.ErrNonExist:
 		c.JSON(http.StatusNotFound, gin.H{"message": "Can't find user with id #42\n"})
 	default:
