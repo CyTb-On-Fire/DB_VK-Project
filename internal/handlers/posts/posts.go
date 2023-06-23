@@ -15,6 +15,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type UpdateRequest struct {
@@ -191,62 +192,41 @@ func (handler *PostHandler) Details(c *gin.Context) {
 	}
 	log.Println(params.Params)
 
-	for i := range params.Params {
-		if params.Params[i] == "user" {
+	if len(params.Params) > 0 {
+		params.Params = strings.Split(params.Params[0], ",")
+	}
+
+	for _, opt := range params.Params {
+		switch opt {
+		case "user":
 			log.Println("entered user")
 			response.Author, err = handler.Users.GetByNickname(post.Author)
 			if err != nil {
 				log.Println(err)
 			}
-		}
-
-		if params.Params[i] == "thread" {
-			log.Println("entered user")
+		case "forum":
+			log.Println("entered forum")
+			response.Forum, err = handler.Forums.GetBySlug(post.ForumSlug)
+			if err != nil {
+				log.Println(err)
+			}
+		case "thread":
+			log.Println("entered thread")
 			response.Thread, err = handler.Threads.GetById(tId)
 			if err != nil {
 				log.Println(err)
 			}
 		}
 
-		if params.Params[i] == "forum" {
-			log.Println("entered user")
-			response.Forum, err = handler.Forums.GetBySlug(post.ForumSlug)
-			if err != nil {
-				log.Println(err)
-			}
+		if err != nil {
+			utils.WriteError(c, http.StatusInternalServerError, err)
+			return
 		}
 
-	}
-	//for _, opt := range params.Params {
-	//	switch opt {
-	//	case "user":
-	//		log.Println("entered user")
-	//		response.Author, err = handler.Users.GetByNickname(post.Author)
-	//		if err != nil {
-	//			log.Println(err)
-	//		}
-	//	case "forum":
-	//		log.Println("entered forum")
-	//		response.Forum, err = handler.Forums.GetBySlug(post.ForumSlug)
-	//		if err != nil {
-	//			log.Println(err)
-	//		}
-	//	case "thread":
-	//		log.Println("entered thread")
-	//		response.Thread, err =
-	//		if err != nil {
-	//			log.Println(err)
-	//		}
-	//	}
-
-	if err != nil {
-		utils.WriteError(c, http.StatusInternalServerError, err)
-		return
 	}
 
 	c.JSON(http.StatusOK, response)
 }
-
 func (handler *PostHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
 	log.Println("Started Update handler")

@@ -15,7 +15,7 @@ type Post struct {
 
 type ProxyPost struct {
 	Id        int       `json:"id"`
-	ParentId  int       `json:"parent,omitempty" binding:"required"`
+	ParentId  int       `json:"parent" binding:"required"`
 	Author    string    `json:"author" binding:"required"`
 	Message   string    `json:"message" binding:"required"`
 	Edited    bool      `json:"isEdited,omitempty"`
