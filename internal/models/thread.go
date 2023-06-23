@@ -10,5 +10,5 @@ type Thread struct {
 	Message string    `json:"message" binding:"required"`
 	Votes   int       `json:"votes"`
 	Slug    string    `json:"slug"`
-	Created time.Time `json:"created" binding:"required"`
+	Created time.Time `json:"created"`
 }

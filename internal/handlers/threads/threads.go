@@ -7,6 +7,7 @@ import (
 	"DBProject/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,6 +18,10 @@ type CreateRequest struct {
 	Author  string    `json:"author" binding:"required"`
 	Message string    `json:"message" binding:"required"`
 	Created time.Time `json:"created" binding:"required"`
+}
+
+type ThreadProxy struct {
+	models.Thread
 }
 
 type UpdateRequest struct {
@@ -46,19 +51,26 @@ func (handler *ThreadsHandler) Create(c *gin.Context) {
 		return
 	}
 
+	if thread.Created.Equal(time.Time{}) {
+		thread.Created = time.Now()
+	}
+
+	threadSlug := thread.Slug
+
 	var code int
 
 	thread, err = handler.Threads.Insert(thread)
 
 	switch err {
 	case nil:
-		code = http.StatusOK
+		code = http.StatusCreated
 	case utils.ErrNonExist:
 		c.JSON(http.StatusNotFound, gin.H{"message": "Can`t find user or forum"})
 		return
 	case utils.ErrConflict:
 		code = http.StatusConflict
-		thread, err = handler.Threads.GetBySlug(forumSlug)
+		thread, err = handler.Threads.GetBySlug(threadSlug)
+		log.Println(thread)
 	default:
 		code = http.StatusInternalServerError
 	}
@@ -80,6 +92,8 @@ func (handler *ThreadsHandler) Details(c *gin.Context) {
 		thread, err = handler.Threads.GetById(threadId)
 	}
 
+	log.Println(thread)
+
 	if err != nil {
 		if err == utils.ErrNonExist {
 			c.JSON(http.StatusNotFound, gin.H{"message": "Can't find user with id #42\n"})
@@ -89,7 +103,13 @@ func (handler *ThreadsHandler) Details(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, thread)
+	//anotherThread := ThreadProxy{
+	//	*thread,
+	//}
+
+	log.Println(thread.Created)
+
+	c.JSON(http.StatusOK, gin.H{"SSSSS": "SSSSS"})
 }
 
 func (handler *ThreadsHandler) Update(c *gin.Context) {
@@ -143,9 +163,12 @@ func (handler *ThreadsHandler) GetPosts(c *gin.Context) {
 
 	err := c.Bind(Params)
 	if err != nil {
+		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+
+	log.Println(Params)
 
 	posts := make([]*models.Post, 0)
 
@@ -157,13 +180,33 @@ func (handler *ThreadsHandler) GetPosts(c *gin.Context) {
 	case "parent_tree":
 		posts, err = handler.Threads.GetPostsWithParentTree(Params)
 	default:
-		c.AbortWithError(http.StatusBadRequest, nil)
-		return
+		posts, err = handler.Threads.GetPostsWithFlat(Params)
 	}
+
+	log.Println(posts)
 
 	switch err {
 	case nil:
-		c.JSON(http.StatusOK, posts)
+		proxyPosts := make([]*models.ProxyPost, 0)
+		for _, post := range posts {
+			id, err := strconv.Atoi(post.ThreadId)
+			if err != nil {
+				log.Println(err)
+				c.JSON(http.StatusInternalServerError, err)
+				return
+			}
+			proxyPosts = append(proxyPosts, &models.ProxyPost{
+				Id:        post.Id,
+				ParentId:  post.ParentId,
+				Author:    post.Author,
+				Message:   post.Message,
+				Edited:    post.Edited,
+				ForumSlug: post.ForumSlug,
+				Created:   post.Created,
+				ThreadId:  id,
+			})
+		}
+		c.JSON(http.StatusOK, proxyPosts)
 	case utils.ErrNonExist:
 		c.JSON(http.StatusNotFound, gin.H{"message": "Can't find user with id #42\n"})
 	default:
@@ -175,6 +218,8 @@ func (handler *ThreadsHandler) GetPosts(c *gin.Context) {
 func (handler *ThreadsHandler) Vote(c *gin.Context) {
 	threadSlug := c.Param("slug")
 
+	log.Println(threadSlug)
+
 	voteReq := new(common.Vote)
 
 	voteReq.ThreadSlug = threadSlug
@@ -184,6 +229,8 @@ func (handler *ThreadsHandler) Vote(c *gin.Context) {
 		c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+
+	log.Println(voteReq)
 
 	thread, err := handler.Threads.NewVote(voteReq)
 	switch err {

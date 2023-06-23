@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -70,9 +71,30 @@ func (handler *PostHandler) Create(c *gin.Context) {
 
 	posts, err := handler.Posts.Insert(stockPosts)
 
+	proxyPosts := make([]*models.ProxyPost, 0)
+
+	for _, post := range posts {
+		id, err := strconv.Atoi(post.ThreadId)
+		if err != nil {
+			log.Println("Got error")
+			break
+		}
+		proxyPosts = append(proxyPosts, &models.ProxyPost{
+			Id:        post.Id,
+			ParentId:  post.ParentId,
+			Author:    post.Author,
+			Message:   post.Message,
+			Edited:    post.Edited,
+			ForumSlug: post.ForumSlug,
+			Created:   post.Created,
+			ThreadId:  id,
+		})
+	}
+	log.Println(posts)
+
 	switch err {
 	case nil:
-		c.JSON(http.StatusOK, posts)
+		c.JSON(http.StatusCreated, proxyPosts)
 	case utils.ErrNonExist:
 		c.JSON(http.StatusNotFound, gin.H{"message": "Can't find user with id #42\n"})
 	case utils.ErrConflict:

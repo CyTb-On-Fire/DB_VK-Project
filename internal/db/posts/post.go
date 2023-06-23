@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx"
 	"log"
+	"strconv"
 	"time"
 )
 
@@ -43,7 +44,7 @@ func (s *PostStorage) Insert(batch []*models.Post) ([]*models.Post, error) {
 			post.Author,
 			post.Message,
 			post.ThreadId,
-			post.Created,
+			post.Created.UnixNano(),
 		}
 
 		var parentId string
@@ -101,6 +102,17 @@ func (s *PostStorage) Insert(batch []*models.Post) ([]*models.Post, error) {
 		if err != nil {
 			log.Println("error scanning forumslug: ", err)
 		}
+
+		if !govalidator.IsInt(post.ThreadId) {
+			var id int
+			err = tx.QueryRow(`SELECT id FROM thread where slug=$1`, post.ThreadId).Scan(&id)
+			post.ThreadId = strconv.Itoa(id)
+		}
+		if err != nil {
+			log.Println("error scanning THreadId: ", err)
+		}
+
+		log.Printf("%+v", post)
 
 	}
 	log.Println("Exited without error")

@@ -49,10 +49,21 @@ func (handler *UserHandler) Create(c *gin.Context) {
 		code = http.StatusCreated
 	case utils.ErrConflict:
 		code = http.StatusConflict
-		user, err = handler.Users.GetByNickname(userName)
-		if err != nil {
-			code = http.StatusInternalServerError
+		users := make([]*models.User, 0)
+		user1, err := handler.Users.GetByEmail(request.Email)
+		if err == nil {
+			users = append(users, user1)
 		}
+		user2, err := handler.Users.GetByNickname(userName)
+		if err == nil {
+			if len(users) == 0 || *user1 != *user2 {
+				users = append(users, user2)
+			}
+		}
+		if users != nil {
+			c.JSON(code, users)
+		}
+		return
 	default:
 		utils.WriteError(c, http.StatusInternalServerError, err)
 		return
@@ -89,15 +100,15 @@ func (handler *UserHandler) EditProfile(c *gin.Context) {
 		return
 	}
 
-	updatingUser, err = handler.Users.UpdateUser(updatingUser)
+	updatedUser, err := handler.Users.UpdateUser(updatingUser)
 	switch err {
 	case nil:
-		c.JSON(http.StatusOK, updatingUser)
+		c.JSON(http.StatusOK, updatedUser)
 	case utils.ErrNonExist:
 		c.JSON(http.StatusNotFound, gin.H{"message": fmt.Sprintf("Can`t find user with nickname %v", userName)})
 	case utils.ErrConflict:
-		updatingUser, err = handler.Users.GetByEmail(updatingUser.Email)
-		c.JSON(http.StatusConflict, updatingUser)
+		updatedUser, err = handler.Users.GetByEmail(updatingUser.Email)
+		c.JSON(http.StatusConflict, updatedUser)
 	default:
 		utils.WriteError(c, http.StatusInternalServerError, err)
 	}

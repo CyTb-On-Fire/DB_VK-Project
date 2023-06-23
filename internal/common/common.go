@@ -1,6 +1,9 @@
 package common
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 type ListParams struct {
 	Slug  string `form:"-"`
@@ -17,11 +20,11 @@ type ThreadListParams struct {
 }
 
 type FilterParams struct {
-	ThreadSlug string `json:"slug"`
-	Limit      int    `json:"limit"`
-	Since      int    `json:"since"`
-	Sort       string `json:"sort"`
-	Desc       bool   `json:"desc"`
+	ThreadSlug string `form:"slug"`
+	Limit      int    `form:"limit"`
+	Since      int    `form:"since"`
+	Sort       string `form:"sort"`
+	Desc       bool   `form:"desc"`
 }
 
 type Vote struct {
@@ -41,3 +44,5 @@ type PostViewParams struct {
 	Id     int      `form:"-"`
 	Params []string `form:"params"`
 }
+
+type NullableInt sql.NullInt64
