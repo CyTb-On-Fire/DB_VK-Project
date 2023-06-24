@@ -210,11 +210,13 @@ func (s *PostStorage) Update(id int, message string) (*models.Post, error) {
 
 	var tempId int
 	var tempTime int64
+	var oldMsg string
 	nullableInt := sql.NullInt64{}
-	err := s.db.QueryRow(`SELECT p.parent_id, u.nickname, p.thread_id, p.created, f.slug FROM post p
+	err := s.db.QueryRow(`SELECT p.message, p.parent_id, u.nickname, p.thread_id, p.created, f.slug FROM post p
                                                                                JOIN forum f on f.id = p.forum_id
                                                                                JOIN users u on u.id = p.author_id
                                                                                WHERE p.id=$1`, id).Scan(
+		&oldMsg,
 		&nullableInt,
 		&post.Author,
 		&tempId,
@@ -222,6 +224,7 @@ func (s *PostStorage) Update(id int, message string) (*models.Post, error) {
 		&post.ForumSlug,
 	)
 	log.Println(err)
+	post.Message = oldMsg
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, utils.ErrNonExist
@@ -231,15 +234,20 @@ func (s *PostStorage) Update(id int, message string) (*models.Post, error) {
 	post.ParentId = int(nullableInt.Int64)
 	post.ThreadId = strconv.Itoa(tempId)
 	post.Created = time.Unix(0, tempTime)
-	_, err = s.db.Exec(`UPDATE post SET message=$1, edited=true 
+	if oldMsg != message && message != "" {
+
+		_, err = s.db.Exec(`UPDATE post SET message=$1, edited=true 
             WHERE id=$2`,
-		message,
-		id,
-	)
-	log.Println(err)
-	if err != nil {
-		return nil, err
+			message,
+			id,
+		)
+		log.Println(err)
+		if err != nil {
+			return nil, err
+		}
+		post.Edited = true
+		post.Message = message
+
 	}
-	post.Edited = true
 	return post, nil
 }

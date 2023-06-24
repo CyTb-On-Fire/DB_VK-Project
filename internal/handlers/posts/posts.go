@@ -229,6 +229,7 @@ func (handler *PostHandler) Details(c *gin.Context) {
 }
 func (handler *PostHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
+
 	log.Println("Started Update handler")
 	id, err := strconv.Atoi(idStr)
 
@@ -239,7 +240,8 @@ func (handler *PostHandler) Update(c *gin.Context) {
 
 	request := new(UpdateRequest)
 
-	err = c.BindQuery(request)
+	err = c.Bind(request)
+	log.Println("UPDATE REQUEST:", request)
 
 	if err != nil {
 		c.AbortWithError(http.StatusBadRequest, err)
@@ -247,8 +249,12 @@ func (handler *PostHandler) Update(c *gin.Context) {
 	}
 
 	post, err := handler.Posts.Update(id, request.Message)
+	log.Println(post)
 	log.Println(err)
-
+	if err == utils.ErrNonExist {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Can't find post with id"})
+		return
+	}
 	tId, _ := strconv.Atoi(post.ThreadId)
 
 	proxyPost := &models.ProxyPost{
