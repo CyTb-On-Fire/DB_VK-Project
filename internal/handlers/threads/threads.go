@@ -5,6 +5,7 @@ import (
 	"DBProject/internal/db/threads"
 	"DBProject/internal/models"
 	"DBProject/internal/utils"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx"
 	"log"
@@ -156,11 +157,26 @@ func (handler *ThreadsHandler) Update(c *gin.Context) {
 func (handler *ThreadsHandler) GetPosts(c *gin.Context) {
 	threadSlug := c.Param("slug")
 
+	tId, convErr := strconv.Atoi(threadSlug)
+
+	var err error
+
+	if convErr != nil {
+		_, err = handler.Threads.GetBySlug(threadSlug)
+	} else {
+		_, err = handler.Threads.GetById(tId)
+	}
+
+	if err == utils.ErrNonExist {
+		c.JSON(http.StatusNotFound, gin.H{"message": fmt.Sprintf("can`t find thread with id %s", threadSlug)})
+		return
+	}
+
 	Params := new(common.FilterParams)
 
 	Params.ThreadSlug = threadSlug
 
-	err := c.Bind(Params)
+	err = c.Bind(Params)
 	if err != nil {
 		log.Println(err)
 		c.AbortWithError(http.StatusBadRequest, err)
