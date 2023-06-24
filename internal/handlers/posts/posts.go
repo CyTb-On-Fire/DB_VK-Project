@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type UpdateRequest struct {
@@ -62,10 +63,11 @@ func (handler *PostHandler) Create(c *gin.Context) {
 	id, convErr := strconv.Atoi(threadId)
 
 	var err error
+	var thread *models.Thread
 	if convErr != nil {
-		_, err = handler.Threads.GetBySlug(threadId)
+		thread, err = handler.Threads.GetBySlug(threadId)
 	} else {
-		_, err = handler.Threads.GetById(id)
+		thread, err = handler.Threads.GetById(id)
 	}
 
 	log.Println("Error in Posts Create: ", err)
@@ -91,14 +93,18 @@ func (handler *PostHandler) Create(c *gin.Context) {
 		return
 	}
 
+	beginTime := time.Now()
+
 	for _, post := range stockPosts {
-		post.ThreadId = threadId
+		post.ThreadId = strconv.Itoa(thread.Id)
+		post.Created = beginTime
+		post.ForumSlug = thread.Forum
 	}
 
 	log.Println(stockPosts)
 
-	posts, err := handler.Posts.Insert(stockPosts)
-
+	//posts, err := handler.Posts.Insert(stockPosts)
+	posts, err := handler.Posts.BatchInsert(stockPosts)
 	if err == utils.ErrConflict {
 		c.JSON(http.StatusConflict, gin.H{"message": "Parent post was created in another thread"})
 		return
