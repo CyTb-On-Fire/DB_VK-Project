@@ -4,6 +4,7 @@ import (
 	"DBProject/internal/common"
 	"DBProject/internal/models"
 	"DBProject/internal/utils"
+	"database/sql"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx"
 	"log"
@@ -242,6 +243,7 @@ func (f *ForumStorage) GetThreads(params *common.ThreadListParams) ([]*models.Th
 	defer rows.Scan()
 
 	var tempInt int64
+	var nullableString sql.NullString
 
 	for rows.Next() {
 		thread := &models.Thread{Forum: params.Slug}
@@ -252,7 +254,7 @@ func (f *ForumStorage) GetThreads(params *common.ThreadListParams) ([]*models.Th
 			&thread.Title,
 			&tempInt,
 			&thread.Votes,
-			&thread.Slug,
+			&nullableString,
 			&thread.Forum,
 		)
 		if err != nil {
@@ -260,7 +262,7 @@ func (f *ForumStorage) GetThreads(params *common.ThreadListParams) ([]*models.Th
 			return nil, err
 		}
 		thread.Created = time.Unix(0, tempInt)
-
+		thread.Slug = nullableString.String
 		threads = append(threads, thread)
 	}
 

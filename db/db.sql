@@ -161,10 +161,10 @@ execute procedure process_post_inc();
 create unique index on forum(lower(slug)) include(id);
 
 
-create unique index on users(lower(email));
-create unique index on users(lower(nickname));
+create unique index on users(lower(email)) include(id);
+create unique index on users(lower(nickname)) include(id);
 
-create unique index on thread(lower(slug));
+create unique index on thread(lower(slug)) include(id);
 
 create index on post ((path[1]));
 
