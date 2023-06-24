@@ -84,11 +84,17 @@ func (handler *ForumHandler) Details(c *gin.Context) {
 func (handler *ForumHandler) GetUsers(c *gin.Context) {
 	forumSlug := c.Param("slug")
 
+	_, err := handler.Forums.GetBySlug(forumSlug)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Can't find thread by slug or id"})
+		return
+	}
+
 	params := &common.ListParams{
 		Slug: forumSlug,
 	}
 
-	err := c.Bind(params)
+	err = c.Bind(params)
 	if err != nil {
 		utils.WriteError(c, http.StatusBadRequest, err)
 		return
