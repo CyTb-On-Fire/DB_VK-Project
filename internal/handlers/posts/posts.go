@@ -59,13 +59,16 @@ func New(pool *pgx.ConnPool) *PostHandler {
 func (handler *PostHandler) Create(c *gin.Context) {
 	threadId := c.Param("slug")
 
-	id, err := strconv.Atoi(threadId)
+	id, convErr := strconv.Atoi(threadId)
 
-	if err != nil {
+	var err error
+	if convErr != nil {
 		_, err = handler.Threads.GetBySlug(threadId)
 	} else {
 		_, err = handler.Threads.GetById(id)
 	}
+
+	log.Println("Error in Posts Create: ", err)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound,

@@ -90,7 +90,7 @@ func (s *ThreadStorage) GetById(id int) (*models.Thread, error) {
 	thread := &models.Thread{Id: id}
 
 	var tempTime int64
-
+	var nullableStr sql.NullString
 	err := s.db.QueryRow(
 		`SELECT u.nickname, message, thread.title, f.slug, thread.slug, created, vote_count FROM thread
 		JOIN users u on u.id = thread.author_id
@@ -102,10 +102,12 @@ func (s *ThreadStorage) GetById(id int) (*models.Thread, error) {
 		&thread.Message,
 		&thread.Title,
 		&thread.Forum,
-		&thread.Slug,
+		&nullableStr,
 		&tempTime,
 		&thread.Votes,
 	)
+
+	thread.Slug = nullableStr.String
 
 	if err != nil {
 		if err == pgx.ErrNoRows {
