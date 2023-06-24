@@ -8,7 +8,6 @@ import (
 	threads2 "DBProject/internal/handlers/threads"
 	"DBProject/internal/handlers/user"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx"
 	"log"
 )
 
@@ -25,7 +24,9 @@ func (app *App) Run() {
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
-	db, err := pgx.NewConnPool(config.PostgresPoolCong)
+	//db, err := pgx.NewConnPool(config.PostgresPoolCong)
+
+	db, err := config.InitPostgres()
 
 	if err != nil {
 		log.Println("App-Run NewConnPool error: ", err)
