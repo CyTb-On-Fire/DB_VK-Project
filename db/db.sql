@@ -155,6 +155,18 @@ create or replace trigger trigger_post_inc
 execute procedure process_post_inc();
 
 
+create or replace function process_thread_insertion() returns trigger as $thread_insertion$
+    begin
+        insert into forumusers(user_id, forum_id) VALUES(new.author_id, new.forum_id) on conflict do nothing ;
+        return null;
+    end
+    $thread_insertion$ LANGUAGE plpgsql;
+
+create or replace trigger trigger_thread_insertion
+    after insert on thread
+    for each row
+execute procedure process_thread_insertion();
+
 
 -- Indexes
 
@@ -165,6 +177,10 @@ create unique index on users(lower(email)) include(id);
 create unique index on users(lower(nickname)) include(id);
 
 create unique index on thread(lower(slug)) include(id);
+
+-- create index on thread using hash(forum_id) include (id, author_id);
+--
+-- create index on post using hash(forum_id) include (id, author_id);
 
 create index on post ((path[1]));
 

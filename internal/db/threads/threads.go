@@ -24,7 +24,7 @@ func New(pool *pgx.ConnPool) *ThreadStorage {
 	}
 }
 
-func (s *ThreadStorage) Insert(thread *models.Thread) (*models.Thread, error) {
+func (s *ThreadStorage) Insert(thread *models.Thread, forum *models.Forum) (*models.Thread, error) {
 
 	query := `INSERT INTO thread(author_id, message, title, forum_id, created`
 
@@ -34,17 +34,21 @@ func (s *ThreadStorage) Insert(thread *models.Thread) (*models.Thread, error) {
 
 	query += `) 
 			values(
-			       (SELECT id FROM users where nickname=$1), 
-			       $2, $3, (SELECT id FROM forum WHERE lower(slug)=lower($4)), $5`
+			       (SELECT id FROM users where lower(nickname)=lower($1)), 
+			       $2, $3, $4, $5`
 
 	if thread.Slug != "" {
 		query += `, $6`
 	}
 
+	log.Println("forum id: ", forum.Id)
+
 	query += `)
 			RETURNING id`
 
 	var err error
+
+	log.Println(query)
 
 	if thread.Slug != "" {
 		err = s.db.QueryRow(
@@ -52,7 +56,7 @@ func (s *ThreadStorage) Insert(thread *models.Thread) (*models.Thread, error) {
 			thread.Author,
 			thread.Message,
 			thread.Title,
-			thread.Forum,
+			forum.Id,
 			thread.Created.UnixNano(),
 			thread.Slug,
 		).Scan(&thread.Id)
@@ -62,7 +66,7 @@ func (s *ThreadStorage) Insert(thread *models.Thread) (*models.Thread, error) {
 			thread.Author,
 			thread.Message,
 			thread.Title,
-			thread.Forum,
+			forum.Id,
 			thread.Created.UnixNano(),
 		).Scan(&thread.Id)
 	}
@@ -81,7 +85,8 @@ func (s *ThreadStorage) Insert(thread *models.Thread) (*models.Thread, error) {
 		return nil, err
 	}
 
-	err = s.db.QueryRow(`SELECT slug from forum WHERE lower(slug)=lower($1)`, thread.Forum).Scan(&thread.Forum)
+	thread.Forum = forum.Slug
+	//err = s.db.QueryRow(`SELECT slug from forum WHERE lower(slug)=lower($1)`, thread.Forum).Scan(&thread.Forum)
 
 	return thread, nil
 }
@@ -212,19 +217,19 @@ func (s *ThreadStorage) GetPostsWithFlat(params *common.FilterParams) ([]*models
 	var threadId string
 
 	var err error
-	var exists bool
+	//var exists bool
 
 	if govalidator.IsInt(params.ThreadSlug) {
 		threadId = "$1"
-		err = s.db.QueryRow(`SELECT EXISTS(SELECT from thread WHERE id=$1)`, params.ThreadSlug).Scan(&exists)
+		//err = s.db.QueryRow(`SELECT EXISTS(SELECT from thread WHERE id=$1)`, params.ThreadSlug).Scan(&exists)
 	} else {
 		threadId = " (SELECT id FROM thread where lower(slug)=lower($1)) "
-		err = s.db.QueryRow(`SELECT EXISTS(SELECT from thread where lower(slug)=lower($1))`, params.ThreadSlug).Scan(&exists)
+		//err = s.db.QueryRow(`SELECT EXISTS(SELECT from thread where lower(slug)=lower($1))`, params.ThreadSlug).Scan(&exists)
 	}
 
-	if !exists {
-		return nil, utils.ErrNonExist
-	}
+	//if !exists {
+	//	return nil, utils.ErrNonExist
+	//}
 
 	log.Println(`SELECT p.id, p.parent_id, u.nickname, p.message, p.edited, p.thread_id, p.created, f.slug FROM post p
             JOIN users u on p.author_id = u.id
@@ -233,9 +238,8 @@ func (s *ThreadStorage) GetPostsWithFlat(params *common.FilterParams) ([]*models
 		LIMIT $2;`)
 
 	rows, err := s.db.Query(
-		`SELECT p.id, p.parent_id, u.nickname, p.message, p.edited, p.thread_id, p.created, f.slug FROM post p
+		`SELECT p.id, p.parent_id, u.nickname, p.message, p.edited, p.thread_id, p.created FROM post p
             JOIN users u on p.author_id = u.id
-            JOIN forum f on f.id = p.forum_id
 		WHERE p.thread_id=`+threadId+sinceStmt+` ORDER BY created `+order+`, p.id `+order+`
 		LIMIT $2;`,
 		args...,
@@ -265,7 +269,6 @@ func (s *ThreadStorage) GetPostsWithFlat(params *common.FilterParams) ([]*models
 			&post.Edited,
 			&tempId,
 			&tempTime,
-			&post.ForumSlug,
 		)
 		if err != nil {
 			log.Println(err)
@@ -284,22 +287,22 @@ func (s *ThreadStorage) GetPostsWithFlat(params *common.FilterParams) ([]*models
 func (s *ThreadStorage) GetPostsWithTree(params *common.FilterParams) ([]*models.Post, error) {
 	posts := make([]*models.Post, 0)
 
-	var threadId string
+	//var threadId string
 
-	var exists bool
+	//var exists bool
 	var err error
 
-	if govalidator.IsInt(params.ThreadSlug) {
-		threadId = " $1 "
-		err = s.db.QueryRow(`SELECT EXISTS(SELECT from thread WHERE id=$1)`, params.ThreadSlug).Scan(&exists)
-	} else {
-		threadId = " (select id from thread where lower(slug)=lower($1)) "
-		err = s.db.QueryRow(`SELECT EXISTS(SELECT from thread where lower(slug)=lower($1))`, params.ThreadSlug).Scan(&exists)
-	}
-
-	if !exists {
-		return nil, utils.ErrNonExist
-	}
+	//if govalidator.IsInt(params.ThreadSlug) {
+	//	//threadId = " $1 "
+	//	err = s.db.QueryRow(`SELECT EXISTS(SELECT from thread WHERE id=$1)`, params.ThreadSlug).Scan(&exists)
+	//} else {
+	//	//threadId = " (select id from thread where lower(slug)=lower($1)) "
+	//	err = s.db.QueryRow(`SELECT EXISTS(SELECT from thread where lower(slug)=lower($1))`, params.ThreadSlug).Scan(&exists)
+	//}
+	//
+	//if !exists {
+	//	return nil, utils.ErrNonExist
+	//}
 
 	var order string
 	var comparison string
@@ -330,9 +333,9 @@ func (s *ThreadStorage) GetPostsWithTree(params *common.FilterParams) ([]*models
 		args = append(args, params.Since)
 	}
 
-	query := fmt.Sprintf(`SELECT p.id, p.parent_id, u.nickname, p.message, p.edited, p.thread_id, p.created, f.slug FROM post p
+	query := fmt.Sprintf(`SELECT p.id, p.parent_id, u.nickname, p.message, p.edited, p.thread_id, p.created FROM post p
 			JOIN users u on p.author_id = u.id
-			JOIN forum f on f.id = p.forum_id
+-- 			JOIN forum f on f.id = p.forum_id
 			WHERE p.thread_id=$1
 			%s
 			ORDER BY p.path %s
@@ -340,20 +343,20 @@ func (s *ThreadStorage) GetPostsWithTree(params *common.FilterParams) ([]*models
 
 	log.Println(query)
 
-	oldQuery := fmt.Sprintf(`WITH RECURSIVE tree(id, parent_id, author_id, message, edited, thread_id, created, forum_id, path, key1, key2) AS(
-    (SELECT p1.id, p1.parent_id, p1.author_id, p1.message, p1.edited, p1.thread_id, p1.created, p1.forum_id, p1.path, p1.created as key1, ARRAY[]::bigint[] as key2 FROM post p1 WHERE parent_id IS NULL ORDER BY created asc)
-    UNION ALL
-    SELECT p2.id, p2.parent_id, p2.author_id, p2.message, p2.edited, p2.thread_id, p2.created, p2.forum_id, p2.path, tree.key1 as key1, tree.key2 || p2.created as key2 FROM post p2 INNER JOIN tree on tree.id=p2.parent_id
-) SELECT tree.id, parent_id, u.nickname, message, edited, thread_id, created, f.slug
-FROM tree
-         JOIN users u on u.id = tree.author_id
-         JOIN forum f on f.id = tree.forum_id
-WHERE thread_id=%s
-%s
-ORDER BY key1 %s, key2, tree.id
-LIMIT $2`, threadId, sinceStmt, order)
+	//	oldQuery := fmt.Sprintf(`WITH RECURSIVE tree(id, parent_id, author_id, message, edited, thread_id, created, forum_id, path, key1, key2) AS(
+	//    (SELECT p1.id, p1.parent_id, p1.author_id, p1.message, p1.edited, p1.thread_id, p1.created, p1.forum_id, p1.path, p1.created as key1, ARRAY[]::bigint[] as key2 FROM post p1 WHERE parent_id IS NULL ORDER BY created asc)
+	//    UNION ALL
+	//    SELECT p2.id, p2.parent_id, p2.author_id, p2.message, p2.edited, p2.thread_id, p2.created, p2.forum_id, p2.path, tree.key1 as key1, tree.key2 || p2.created as key2 FROM post p2 INNER JOIN tree on tree.id=p2.parent_id
+	//) SELECT tree.id, parent_id, u.nickname, message, edited, thread_id, created, f.slug
+	//FROM tree
+	//         JOIN users u on u.id = tree.author_id
+	//         JOIN forum f on f.id = tree.forum_id
+	//WHERE thread_id=%s
+	//%s
+	//ORDER BY key1 %s, key2, tree.id
+	//LIMIT $2`, threadId, sinceStmt, order)
 
-	_ = oldQuery
+	//_ = oldQuery
 
 	rows, err := s.db.Query(
 		query,
@@ -381,7 +384,6 @@ LIMIT $2`, threadId, sinceStmt, order)
 			&post.Edited,
 			&tempId,
 			&tempTime,
-			&post.ForumSlug,
 		)
 		if err != nil {
 			log.Println(err)
@@ -444,8 +446,8 @@ func (s *ThreadStorage) GetPostsWithParentTree(params *common.FilterParams) ([]*
 		sinceStmt = `AND path[1]` + comparison + `(SELECT path[1] FROM post WHERE id = $3)`
 		args = append(args, params.Since)
 	}
-	baseQuery := fmt.Sprintf(`SELECT p.id, p.parent_id, u.nickname, p.message, p.edited, f.slug, p.thread_id, p.created FROM post p
-                                                                                  JOIN forum f on f.id = p.forum_id
+	baseQuery := fmt.Sprintf(`SELECT p.id, p.parent_id, u.nickname, p.message, p.edited, p.thread_id, p.created FROM post p
+--                                                                                   JOIN forum f on f.id = p.forum_id
                                                                                   JOIN users u on u.id = p.author_id
 					WHERE p.path[1] IN (SELECT id FROM post WHERE thread_id = $1 AND parent_id IS NULL 
 					        %s
@@ -489,7 +491,6 @@ func (s *ThreadStorage) GetPostsWithParentTree(params *common.FilterParams) ([]*
 			&post.Author,
 			&post.Message,
 			&post.Edited,
-			&post.ForumSlug,
 			&tempId,
 			&tempTime,
 		)

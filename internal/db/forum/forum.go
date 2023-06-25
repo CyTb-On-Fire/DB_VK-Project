@@ -59,12 +59,13 @@ func (f *ForumStorage) GetBySlug(slug string) (*models.Forum, error) {
 	forum := &models.Forum{}
 
 	err := f.db.QueryRow(
-		`SELECT u.nickname, f.slug, f.title, f.post_count, f.thread_count 
+		`SELECT f.id, u.nickname, f.slug, f.title, f.post_count, f.thread_count 
 			FROM forum f
 			JOIN users u on u.id = f.author_id
 			WHERE lower(f.slug)=lower($1)`,
 		slug,
 	).Scan(
+		&forum.Id,
 		&forum.UserName,
 		&forum.Slug,
 		&forum.Title,
@@ -80,6 +81,106 @@ func (f *ForumStorage) GetBySlug(slug string) (*models.Forum, error) {
 	}
 
 	return forum, nil
+}
+
+func (f *ForumStorage) GetUsersWithInterTable(params *common.ListParams) ([]*models.User, error) {
+	users := make([]*models.User, 0)
+
+	if params.Limit == 0 {
+		params.Limit = 100
+	}
+
+	var order string
+	var comparsion string
+	if params.Desc {
+		comparsion = "<"
+		order = "desc"
+	} else {
+		order = "asc"
+		comparsion = ">"
+	}
+
+	log.Println(`SELECT DISTINCT u.id, u.nickname collate nickname_case_insensitive, u.fullname, u.about, u.email FROM users u
+		RIGHT JOIN (SELECT id, author_id FROM thread WHERE (SELECT id from forum f where lower(f.slug)=lower($1)) = forum_id) t on t.author_id = u.id
+		RIGHT JOIN (SELECT id, author_id FROM post WHERE (SELECT id from forum f where lower(f.slug)=lower($1)) = forum_id) p on u.id = p.author_id
+	   WHERE nickname collate nickname_case_insensitive ` + comparsion + ` $3 collate nickname_case_insensitive
+	   ORDER BY nickname collate nickname_case_insensitive
+	   ` + order +
+		`
+		LIMIT $2`)
+
+	var forumId int
+
+	err := f.db.QueryRow(`SELECT id from forum where lower(slug)=lower($1)`, params.Slug).Scan(&forumId)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, utils.ErrNonExist
+		}
+		return nil, err
+	}
+
+	args := []interface{}{
+		forumId,
+		params.Limit,
+	}
+
+	sinceFilter := ""
+
+	if params.Since != "" {
+		sinceFilter = ` AND lower(nickname) ` + comparsion + ` lower($3 collate "C")
+`
+		args = append(args, params.Since)
+	}
+
+	rows, err := f.db.Query(
+		`SELECT u.id, u.nickname, u.fullname, u.about, u.email
+				FROM users u JOIN forumusers fu ON u.id = fu.user_id
+							JOIN forum f ON f.id = fu.forum_id
+				WHERE f.id = $1 `+sinceFilter+`
+			ORDER BY lower(nickname)
+`+order+`
+		LIMIT $2`,
+		args...,
+	)
+
+	//rows, err := f.db.Query(
+	//	`SELECT DISTINCT u.id, u.nickname, u.fullname, u.about, u.email, lower(u.nickname) FROM users u
+	//	LEFT JOIN (SELECT id, author_id FROM thread WHERE $1 = forum_id) t on t.author_id = u.id
+	//	LEFT JOIN (SELECT id, author_id FROM post WHERE $1 = forum_id) p on u.id = p.author_id
+	//    WHERE (t.id is not null or p.id is not null)
+	//	`+sinceFilter+`
+	//    ORDER BY lower(nickname)
+	//    `+order+
+	//		`
+	//	LIMIT $2`,
+	//	args...,
+	//)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		user := &models.User{}
+		err = rows.Scan(
+			&user.Id,
+			&user.Nickname,
+			&user.Fullname,
+			&user.About,
+			&user.Email,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		users = append(users, user)
+	}
+
+	return users, nil
+
 }
 
 func (f *ForumStorage) GetUsers(params *common.ListParams) ([]*models.User, error) {
@@ -178,8 +279,9 @@ func (f *ForumStorage) GetThreads(params *common.ThreadListParams) ([]*models.Th
 	threads := make([]*models.Thread, 0)
 
 	var forumId int
+	var forumSlug string
 
-	err := f.db.QueryRow(`SELECT id FROM forum where lower(slug)=lower($1)`, params.Slug).Scan(&forumId)
+	err := f.db.QueryRow(`SELECT id, slug FROM forum where lower(slug)=lower($1)`, params.Slug).Scan(&forumId, &forumSlug)
 
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -220,15 +322,16 @@ func (f *ForumStorage) GetThreads(params *common.ThreadListParams) ([]*models.Th
 		params.Limit,
 	)
 
-	log.Println(`SELECT t.id, u.nickname, t.message, t.title, t.created, t.vote_count, t.slug FROM thread t
+	log.Println(`SELECT t.id, u.nickname, t.message, t.title, t.created, t.vote_count, t.slug, f.slug FROM thread t
 	JOIN users u on u.id = t.author_id
+                                                                             JOIN forum f on f.id = t.forum_id
     WHERE t.forum_id=$1` + sinceStmt + `
     ORDER BY t.created ` + order + `
 	LIMIT $2`)
 
-	rows, err := f.db.Query(`SELECT t.id, u.nickname, t.message, t.title, t.created, t.vote_count, t.slug, f.slug FROM thread t
+	rows, err := f.db.Query(`SELECT t.id, u.nickname, t.message, t.title, t.created, t.vote_count, t.slug FROM thread t
 	JOIN users u on u.id = t.author_id
-                                                                             JOIN forum f on f.id = t.forum_id
+                                                                             
     WHERE t.forum_id=$1`+sinceStmt+`
     ORDER BY t.created `+order+`
 	LIMIT $2`,
@@ -255,12 +358,12 @@ func (f *ForumStorage) GetThreads(params *common.ThreadListParams) ([]*models.Th
 			&tempInt,
 			&thread.Votes,
 			&nullableString,
-			&thread.Forum,
 		)
 		if err != nil {
 			log.Println(err)
 			return nil, err
 		}
+		thread.Forum = forumSlug
 		thread.Created = time.Unix(0, tempInt)
 		thread.Slug = nullableString.String
 		threads = append(threads, thread)

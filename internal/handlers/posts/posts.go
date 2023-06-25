@@ -177,6 +177,12 @@ func (handler *PostHandler) Details(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Can't find post with id"})
 		return
 	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, err)
+		return
+	}
+
 	tId, _ := strconv.Atoi(post.ThreadId)
 	response.Post = &models.ProxyPost{
 		Id:        post.Id,

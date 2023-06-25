@@ -176,7 +176,7 @@ func (s *PostStorage) Details(id int) (*models.Post, error) {
 	nullableInt := sql.NullInt64{}
 	var tempTime int64
 	var tempId int
-	err := s.db.QueryRow(
+	err := s.db.QueryRow( //?????????????
 		`SELECT p.parent_id, u.nickname, p.message, p.edited, p.thread_id, p.created, f.slug 
 		FROM post p
 		JOIN forum f on f.id = p.forum_id

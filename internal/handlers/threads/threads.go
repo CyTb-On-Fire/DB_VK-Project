@@ -2,6 +2,7 @@ package threads
 
 import (
 	"DBProject/internal/common"
+	"DBProject/internal/db/forum"
 	"DBProject/internal/db/threads"
 	"DBProject/internal/models"
 	"DBProject/internal/utils"
@@ -32,20 +33,31 @@ type UpdateRequest struct {
 
 type ThreadsHandler struct {
 	Threads *threads.ThreadStorage
+	Forums  *forum.ForumStorage
 }
 
 func New(pool *pgx.ConnPool) *ThreadsHandler {
-	return &ThreadsHandler{Threads: threads.New(pool)}
+	return &ThreadsHandler{
+		Threads: threads.New(pool),
+		Forums:  forum.NewForumStorage(pool),
+	}
 }
 
 func (handler *ThreadsHandler) Create(c *gin.Context) {
 	forumSlug := c.Param("slug")
 
+	linkingForum, err := handler.Forums.GetBySlug(forumSlug)
+
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Can`t find user or forum"})
+		return
+	}
+
 	thread := &models.Thread{
 		Forum: forumSlug,
 	}
 
-	err := c.Bind(thread)
+	err = c.Bind(thread)
 
 	if err != nil {
 		utils.WriteError(c, http.StatusBadRequest, err)
@@ -60,7 +72,7 @@ func (handler *ThreadsHandler) Create(c *gin.Context) {
 
 	var code int
 
-	thread, err = handler.Threads.Insert(thread)
+	thread, err = handler.Threads.Insert(thread, linkingForum)
 
 	switch err {
 	case nil:
@@ -160,11 +172,12 @@ func (handler *ThreadsHandler) GetPosts(c *gin.Context) {
 	tId, convErr := strconv.Atoi(threadSlug)
 
 	var err error
+	var th *models.Thread
 
 	if convErr != nil {
-		_, err = handler.Threads.GetBySlug(threadSlug)
+		th, err = handler.Threads.GetBySlug(threadSlug)
 	} else {
-		_, err = handler.Threads.GetById(tId)
+		th, err = handler.Threads.GetById(tId)
 	}
 
 	if err == utils.ErrNonExist {
@@ -216,7 +229,7 @@ func (handler *ThreadsHandler) GetPosts(c *gin.Context) {
 				Author:    post.Author,
 				Message:   post.Message,
 				Edited:    post.Edited,
-				ForumSlug: post.ForumSlug,
+				ForumSlug: th.Forum,
 				Created:   post.Created,
 				ThreadId:  id,
 			})

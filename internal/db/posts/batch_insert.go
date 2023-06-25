@@ -31,6 +31,9 @@ func (s *PostStorage) BatchInsert(batch []*models.Post) ([]*models.Post, error) 
 
 	args := make([]interface{}, 0)
 
+	forumIds := make([]int, 0)
+	userIds := make([]int, 0)
+
 	query := `INSERT INTO post(parent_id, author_id, message, thread_id, created, forum_id) values
                                                                                   `
 	i := 0
@@ -45,6 +48,9 @@ func (s *PostStorage) BatchInsert(batch []*models.Post) ([]*models.Post, error) 
 		if err != nil {
 			return nil, utils.ErrNonExist
 		}
+
+		forumIds = append(forumIds, fId)
+		userIds = append(userIds, uId)
 
 		inThread := true
 
@@ -100,8 +106,34 @@ func (s *PostStorage) BatchInsert(batch []*models.Post) ([]*models.Post, error) 
 		i++
 	}
 
+	err = s.updateForumUsers(forumIds, userIds)
+
 	log.Println("First id: ", batch[0].Id)
 
 	return batch, err
 
+}
+
+func (s *PostStorage) updateForumUsers(forums, users []int) error {
+	query := `INSERT INTO forumusers(user_id, forum_id) VALUES `
+
+	paramCounter := 0
+
+	args := make([]interface{}, 0)
+
+	for i := 0; i < len(forums); i++ {
+		query += fmt.Sprintf("($%d, $%d),", paramCounter+1, paramCounter+2)
+		args = append(args, users[i], forums[i])
+		paramCounter += 2
+	}
+	query = query[:len(query)-1]
+	query += "on conflict do nothing"
+
+	_, err := s.db.Exec(query, args...)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
