@@ -178,10 +178,9 @@ create unique index on users(lower(nickname)) include(id);
 
 create unique index on thread(lower(slug)) include(id);
 
--- create index on thread using hash(forum_id) include (id, author_id);
---
--- create index on post using hash(forum_id) include (id, author_id);
+create unique index on forumusers(user_id, forum_id);
 
-create index on post ((path[1]));
-
-create index on post ((path[2:]));
+create index if not exists index_posts_id_thread on post (thread_id, id, parent_id NULLS FIRST);
+create index if not exists index_posts_id_path_first on post (path, (path[1]), id);
+create index if not exists index_posts_id_thread_parent_first on post ((path[1]), thread_id, id, parent_id NULLS FIRST);
+create index if not exists index_posts_thread_path on post (thread_id, path);

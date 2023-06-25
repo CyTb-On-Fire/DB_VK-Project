@@ -138,7 +138,7 @@ func (f *ForumStorage) GetUsersWithInterTable(params *common.ListParams) ([]*mod
 				FROM users u JOIN forumusers fu ON u.id = fu.user_id
 							JOIN forum f ON f.id = fu.forum_id
 				WHERE f.id = $1 `+sinceFilter+`
-			ORDER BY lower(nickname)
+			ORDER BY lower(u.nickname)
 `+order+`
 		LIMIT $2`,
 		args...,

@@ -102,8 +102,8 @@ func (handler *ForumHandler) GetUsers(c *gin.Context) {
 
 	log.Println(params)
 
-	users, err := handler.Forums.GetUsers(params)
-	//users, err := handler.Forums.GetUsersWithInterTable(params)
+	//users, err := handler.Forums.GetUsers(params)
+	users, err := handler.Forums.GetUsersWithInterTable(params)
 
 	switch err {
 	case nil:
